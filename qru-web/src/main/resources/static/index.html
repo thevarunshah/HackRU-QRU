@@ -1,0 +1,13 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head> 
+    <title>QRU Main Page</title> 
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+</head>
+<body>
+    <h2>Generate QR code:</h2>
+    <form action="/viewqr" th:action="@{/viewqr}">
+    	<p><input type="email" name="email" placeholder="enter email here"/> <input type="submit" value="Generate" /></p>
+    </form>
+</body>
+</html>

@@ -1,3 +1,13 @@
+.metadata/
+.recommenders/
+.settings/
+RemoteSystemsTempFiles/
+target/
+.springBeans
+
+# qru-api - ignoring for now until ready to commit
+qru-api/
+
 *.class
 
 # Mobile Tools for Java (J2ME)
