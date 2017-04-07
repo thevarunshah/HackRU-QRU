@@ -4,9 +4,9 @@
 RemoteSystemsTempFiles/
 target/
 .springBeans
-
-# qru-api - ignoring for now until ready to commit
-qru-api/
+config.properties
+*.ser
+*.txt
 
 *.class
 
