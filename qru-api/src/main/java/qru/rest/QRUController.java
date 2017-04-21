@@ -44,7 +44,7 @@ public class QRUController {
 	}
 
 	@RequestMapping(path="/update/{email:.+}/{event}", method=RequestMethod.POST)
-	public ResponseEntity<Person> updateLunch1(@PathVariable String event, @PathVariable String email){
+	public ResponseEntity<Person> updateEvent(@PathVariable String event, @PathVariable String email){
 		if(!Utilities.updateEvent(event, email)){
 			return ResponseEntity.badRequest().build();
 		}
