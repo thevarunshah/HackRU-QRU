@@ -63,6 +63,12 @@ public class QRUController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(p);
 	}
 
+	@RequestMapping(path="/update", method=RequestMethod.POST)
+	public ResponseEntity<Person> refreshDB() {
+		utilities.refreshDB();
+		return ResponseEntity.ok().build();
+	}
+
 	@RequestMapping(path="/emaillist", method=RequestMethod.GET)
 	public ResponseEntity<List<String>> emailList(){
 		return ResponseEntity.ok(utilities.getEmailList());

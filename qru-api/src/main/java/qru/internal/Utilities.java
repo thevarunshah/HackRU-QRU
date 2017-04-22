@@ -126,6 +126,28 @@ public class Utilities {
 		backupDB();
 	}
 	
+	public void refreshDB(){
+		
+		MongoClient mongo = new MongoClient(new MongoClientURI(dbUrl));
+		MongoDatabase mongoDatabase = mongo.getDatabase("hackrusp17");
+		MongoCollection<Document> collection = mongoDatabase.getCollection("users");
+		for(Document user : collection.find()){
+			Document localData = (Document) user.get("local");
+			String email = localData.getString("email");
+			Document mlhData = (Document) user.get("mlh_data");
+			String first = mlhData.getString("first_name");
+			String last = mlhData.getString("last_name");
+			
+			Person p = new Person(email, first, last);
+			if(!emailPersonMap.containsKey(p.getEmail())){
+				database.add(p);
+				emailPersonMap.put(p.getEmail(), p);
+			}
+		}
+		mongo.close();
+		backupDB();
+	}
+	
 	private void updateDB(String email){
 		
 		try{
