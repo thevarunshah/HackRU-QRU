@@ -23,20 +23,23 @@ import qru.model.PersonPayload;
 @RestController
 public class QRUController {
 
-	private static final boolean restartingServer = true; 
+	private final Utilities utilities = new Utilities();
+	
+	private static final boolean restartingServer = true;
 
 	@PostConstruct
 	public void init(){
+		utilities.readDbUrl();
 		if(restartingServer){
-			Utilities.readBackup();
+			utilities.readBackup();
 		} else{
-			Utilities.readDB();
+			utilities.readDB();
 		}
 	}
 
 	@RequestMapping(path="/info/{email:.+}", method=RequestMethod.GET)
 	public ResponseEntity<Person> getPerson(@PathVariable String email){
-		Person p = Utilities.getPerson(email);
+		Person p = utilities.getPerson(email);
 		if(p == null){
 			return ResponseEntity.notFound().build();
 		}
@@ -45,16 +48,16 @@ public class QRUController {
 
 	@RequestMapping(path="/update/{email:.+}/{event}", method=RequestMethod.POST)
 	public ResponseEntity<Person> updateEvent(@PathVariable String event, @PathVariable String email){
-		if(!Utilities.updateEvent(event, email)){
+		if(!utilities.updateEvent(event, email)){
 			return ResponseEntity.badRequest().build();
 		}
-		return ResponseEntity.ok(Utilities.getPerson(email));
+		return ResponseEntity.ok(utilities.getPerson(email));
 	}
 
 	@RequestMapping(path="/add", method=RequestMethod.POST, consumes="application/json")
 	public ResponseEntity<Person> addPerson(@RequestBody PersonPayload payload) {
 		Person p = new Person(payload.getEmail(), payload.getFirstName(), payload.getLastName());
-		if(!Utilities.addNewPerson(p)){
+		if(!utilities.addNewPerson(p)){
 			return ResponseEntity.status(HttpStatus.CONFLICT).build();
 		}
 		return ResponseEntity.status(HttpStatus.CREATED).body(p);
@@ -62,6 +65,6 @@ public class QRUController {
 
 	@RequestMapping(path="/emaillist", method=RequestMethod.GET)
 	public ResponseEntity<List<String>> emailList(){
-		return ResponseEntity.ok(Utilities.getEmailList());
+		return ResponseEntity.ok(utilities.getEmailList());
 	}
 }

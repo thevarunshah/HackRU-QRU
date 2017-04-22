@@ -1,5 +1,7 @@
 package qru.internal;
 
+import static com.mongodb.client.model.Filters.eq;
+
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,16 +29,21 @@ import qru.data.Person;
  */
 public class Utilities {
 	
-	private static List<Person> database;
-	private static Map<String, Person> emailPersonMap = new HashMap<String, Person>();
+	private List<Person> database;
+	private Map<String, Person> emailPersonMap = new HashMap<String, Person>();
+	private String dbUrl;
 	
-	public static boolean updateEvent(String event, String email){
+	public boolean updateEvent(String event, String email){
 		Person p = emailPersonMap.get(email);
+		if(p == null){
+			return false;
+		}
 		switch(event){
 			case "checkIn":
 				if(p.getData().isCheckedIn()){
 					return false;
 				}
+				updateDB(email);
 				p.getData().setCheckedIn(true);
 				break;
 			case "tshirt":
@@ -67,11 +74,11 @@ public class Utilities {
 		return true;
 	}
 	
-	public static Person getPerson(String email){
+	public Person getPerson(String email){
 		return emailPersonMap.get(email);
 	}
 	
-	public static boolean addNewPerson(Person p){
+	public boolean addNewPerson(Person p){
 		if(emailPersonMap.containsKey(p.getEmail())){
 			return false;
 		}
@@ -81,11 +88,11 @@ public class Utilities {
 		return true;
 	}
 	
-	public static List<String> getEmailList(){
+	public List<String> getEmailList(){
 		return new ArrayList<String>(emailPersonMap.keySet());
 	}
 	
-	public static void readBackup(){
+	public void readBackup(){
 		
 		try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream("database.ser"))) {
 			database = (List<Person>) ois.readObject();
@@ -98,9 +105,8 @@ public class Utilities {
 		}
 	}
 	
-	public static void readDB(){
+	public void readDB(){
 		
-		String dbUrl = getDbUrl();		
 		database = new ArrayList<Person>();
 		MongoClient mongo = new MongoClient(new MongoClientURI(dbUrl));
 		MongoDatabase mongoDatabase = mongo.getDatabase("hackrusp17");
@@ -116,10 +122,25 @@ public class Utilities {
 			database.add(p);
 			emailPersonMap.put(p.getEmail(), p);
 		}
+		mongo.close();
 		backupDB();
 	}
 	
-	private static void backupDB(){
+	private void updateDB(String email){
+		
+		try{
+			MongoClient mongo = new MongoClient(new MongoClientURI(dbUrl));
+			MongoDatabase mongoDatabase = mongo.getDatabase("hackrusp17");
+			MongoCollection<Document> collection = mongoDatabase.getCollection("users");
+			collection.updateOne(eq("local.email", email), 
+					new Document("$set", new Document("registration_status", 5)));
+			mongo.close();
+		} catch (Exception e){
+			e.printStackTrace();
+		}
+	}
+	
+	private void backupDB(){
 		
 		try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("database.ser"))) {
 			oos.writeObject(database);
@@ -128,12 +149,11 @@ public class Utilities {
 		}
 	}
 	
-	private static String getDbUrl(){
+	public void readDbUrl(){
 		
 		//get information stored in config.properties
 		Properties prop = new Properties();
 		InputStream input = null;
-		String dbUrl = null;
 		try{
 			input = new FileInputStream("config.properties");
 			prop.load(input);
@@ -149,6 +169,5 @@ public class Utilities {
 				}
 			}
 		}
-		return dbUrl;
 	}
 }
