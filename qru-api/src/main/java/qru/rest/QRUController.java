@@ -4,6 +4,7 @@ import java.util.List;
 
 import javax.annotation.PostConstruct;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import qru.data.Person;
+import qru.internal.DBUtilitiesImpl;
 import qru.internal.Utilities;
 import qru.model.PersonPayload;
 
@@ -23,50 +25,47 @@ import qru.model.PersonPayload;
 @RestController
 public class QRUController {
 
-	private final Utilities utilities = new Utilities();
+	@Autowired
+	private Utilities utilities;
 	
-	private static final boolean restartingServer = true;
+	@Autowired
+	private DBUtilitiesImpl dbUtlities;
 
 	@PostConstruct
 	public void init(){
-		utilities.readDbUrl();
-		if(restartingServer){
+		utilities.readProperties();
+		if(utilities.restartingServer){
 			utilities.readBackup();
 		} else{
-			utilities.readDB();
+			dbUtlities.readDB();
 		}
 	}
 
 	@RequestMapping(path="/info/{email:.+}", method=RequestMethod.GET)
 	public ResponseEntity<Person> getPerson(@PathVariable String email){
-		Person p = utilities.getPerson(email);
-		if(p == null){
-			return ResponseEntity.notFound().build();
-		}
-		return ResponseEntity.ok(p);
+		Person person = utilities.getPerson(email);
+		return person == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(person);
 	}
 
 	@RequestMapping(path="/update/{email:.+}/{event}", method=RequestMethod.POST)
 	public ResponseEntity<Person> updateEvent(@PathVariable String event, @PathVariable String email){
-		if(!utilities.updateEvent(event, email)){
-			return ResponseEntity.badRequest().build();
-		}
-		return ResponseEntity.ok(utilities.getPerson(email));
+		return utilities.updateEvent(event, email) ? ResponseEntity.ok(utilities.getPerson(email)) : ResponseEntity.badRequest().build();
 	}
 
 	@RequestMapping(path="/add", method=RequestMethod.POST, consumes="application/json")
 	public ResponseEntity<Person> addPerson(@RequestBody PersonPayload payload) {
-		Person p = new Person(payload.getEmail(), payload.getFirstName(), payload.getLastName());
-		if(!utilities.addNewPerson(p)){
-			return ResponseEntity.status(HttpStatus.CONFLICT).build();
-		}
-		return ResponseEntity.status(HttpStatus.CREATED).body(p);
+		Person person = new Person(payload.getEmail(), payload.getFirstName(), payload.getLastName());
+		return utilities.addNewPerson(person) ? ResponseEntity.status(HttpStatus.CREATED).body(person) : ResponseEntity.status(HttpStatus.CONFLICT).build();
 	}
 
 	@RequestMapping(path="/update", method=RequestMethod.POST)
-	public ResponseEntity<Person> refreshDB() {
-		utilities.refreshDB();
-		return ResponseEntity.ok().build();
+	public ResponseEntity<Integer> refreshDB() {
+		return ResponseEntity.ok(dbUtlities.refreshDB());
+	}
+	
+	@RequestMapping(path="/stats", method=RequestMethod.GET)
+	public ResponseEntity<String> getStats(){
+		return ResponseEntity.ok(utilities.getStats().toString());
 	}
 
 	@RequestMapping(path="/emaillist", method=RequestMethod.GET)

@@ -1,6 +1,8 @@
 package qru.data;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 
@@ -12,11 +14,7 @@ public class PersonData implements Serializable{
 	
 	private boolean checkedIn;
 	private boolean tshirt;
-	private int lunch1;
-	private int dinner;
-	private int midnightSnack;
-	private int breakfast;
-	private int lunch2;
+	private final Map<String, Integer> events = new HashMap<>();
 	
 	public boolean isCheckedIn() {
 		return checkedIn;
@@ -30,34 +28,20 @@ public class PersonData implements Serializable{
 	public void setTshirt(boolean tshirt) {
 		this.tshirt = tshirt;
 	}
-	public int getLunch1() {
-		return lunch1;
+	public Integer getEventCount(String event) {
+		return this.events.get(event);
 	}
-	public void setLunch1(int lunch1) {
-		this.lunch1 = lunch1;
+	public void incrementEventCount(String event) {
+		if (this.events.containsKey(event)) {
+			this.events.put(event, this.events.get(event)+1);
+		}
 	}
-	public int getDinner() {
-		return dinner;
+	public void addNewEvent(String event) {
+		if (!this.events.containsKey(event)) {
+			this.events.put(event, 0);
+		}
 	}
-	public void setDinner(int dinner) {
-		this.dinner = dinner;
-	}
-	public int getMidnightSnack() {
-		return midnightSnack;
-	}
-	public void setMidnightSnack(int midnightSnack) {
-		this.midnightSnack = midnightSnack;
-	}
-	public int getBreakfast() {
-		return breakfast;
-	}
-	public void setBreakfast(int breakfast) {
-		this.breakfast = breakfast;
-	}
-	public int getLunch2() {
-		return lunch2;
-	}
-	public void setLunch2(int lunch2) {
-		this.lunch2 = lunch2;
+	public Map<String, Integer> getEvents() {
+		return new HashMap<String, Integer>(this.events);
 	}
 }

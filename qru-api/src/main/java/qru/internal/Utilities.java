@@ -1,7 +1,5 @@
 package qru.internal;
 
-import static com.mongodb.client.model.Filters.eq;
-
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -14,24 +12,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import org.bson.Document;
-
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientURI;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
+import org.json.JSONObject;
+import org.springframework.stereotype.Component;
 
 import qru.data.Person;
+import qru.data.PersonData;
 
 /**
  * 
  * @author Varun Shah {@literal varun.shah@rutgers.edu}
  */
+@Component
 public class Utilities {
-	
-	private List<Person> database;
-	private Map<String, Person> emailPersonMap = new HashMap<String, Person>();
-	private String dbUrl;
+
+	public boolean restartingServer = false;
+	protected List<Person> localDatabase;
+	protected Map<String, Person> emailPersonMap = new HashMap<String, Person>();
+	private String[] eventsList;
 	
 	public boolean updateEvent(String event, String email){
 		Person p = emailPersonMap.get(email);
@@ -43,7 +40,6 @@ public class Utilities {
 				if(p.getData().isCheckedIn()){
 					return false;
 				}
-				updateDB(email);
 				p.getData().setCheckedIn(true);
 				break;
 			case "tshirt":
@@ -52,23 +48,12 @@ public class Utilities {
 				}
 				p.getData().setTshirt(true);
 				break;
-			case "lunch1":
-				p.getData().setLunch1(p.getData().getLunch1()+1);
-				break;
-			case "dinner":
-				p.getData().setDinner(p.getData().getDinner()+1);
-				break;
-			case "midnightSnack":
-				p.getData().setMidnightSnack(p.getData().getMidnightSnack()+1);
-				break;
-			case "breakfast":
-				p.getData().setBreakfast(p.getData().getBreakfast()+1);
-				break;
-			case "lunch2":
-				p.getData().setLunch2(p.getData().getLunch2()+1);
-				break;
 			default:
-				return false;
+				if(!p.getData().getEvents().containsKey(event)) {
+					return false;
+				}
+				p.getData().incrementEventCount(event);
+				break;
 		}
 		backupDB();
 		return true;
@@ -82,7 +67,10 @@ public class Utilities {
 		if(emailPersonMap.containsKey(p.getEmail())){
 			return false;
 		}
-		database.add(p);
+		for(String event : eventsList) {
+			p.getData().addNewEvent(event);
+		}
+		localDatabase.add(p);
 		emailPersonMap.put(p.getEmail(), p);
 		backupDB();
 		return true;
@@ -95,83 +83,62 @@ public class Utilities {
 	public void readBackup(){
 		
 		try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream("database.ser"))) {
-			database = (List<Person>) ois.readObject();
-			for(Person p : database){
+			localDatabase = (List<Person>) ois.readObject();
+			for(Person p : localDatabase){
 				emailPersonMap.put(p.getEmail(), p);
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
-			database = new ArrayList<Person>();
+			localDatabase = new ArrayList<Person>();
 		}
 	}
 	
-	public void readDB(){
+	public JSONObject getStats(){
 		
-		database = new ArrayList<Person>();
-		MongoClient mongo = new MongoClient(new MongoClientURI(dbUrl));
-		MongoDatabase mongoDatabase = mongo.getDatabase("hackrusp17");
-		MongoCollection<Document> collection = mongoDatabase.getCollection("users");
-		for(Document user : collection.find()){
-			Document localData = (Document) user.get("local");
-			String email = localData.getString("email");
-			Document mlhData = (Document) user.get("mlh_data");
-			String first = mlhData.getString("first_name");
-			String last = mlhData.getString("last_name");
-			
-			Person p = new Person(email, first, last);
-			database.add(p);
-			emailPersonMap.put(p.getEmail(), p);
-		}
-		mongo.close();
-		backupDB();
-	}
-	
-	public void refreshDB(){
-		
-		MongoClient mongo = new MongoClient(new MongoClientURI(dbUrl));
-		MongoDatabase mongoDatabase = mongo.getDatabase("hackrusp17");
-		MongoCollection<Document> collection = mongoDatabase.getCollection("users");
-		for(Document user : collection.find()){
-			Document localData = (Document) user.get("local");
-			String email = localData.getString("email");
-			Document mlhData = (Document) user.get("mlh_data");
-			String first = mlhData.getString("first_name");
-			String last = mlhData.getString("last_name");
-			
-			Person p = new Person(email, first, last);
-			if(!emailPersonMap.containsKey(p.getEmail())){
-				database.add(p);
-				emailPersonMap.put(p.getEmail(), p);
+		int checkedIn = 0, tshirt = 0;
+		int[] eventCounts = new int[eventsList.length];
+		int[] eventCountsPlus = new int[eventsList.length];
+		for(Person p : localDatabase){
+			PersonData data = p.getData();
+			if(data.isCheckedIn()){
+				checkedIn++;
+			}
+			if(data.isTshirt()){
+				tshirt++;
+			}
+			for(int i = 0; i < eventsList.length; i++) {
+				if(!p.getData().getEvents().containsKey(eventsList[i])) {
+					continue; //this should never happen
+				}
+				if(p.getData().getEventCount(eventsList[i]) > 0) {
+					eventCounts[i]++;
+					if(p.getData().getEventCount(eventsList[i]) > 1) {
+						eventCountsPlus[i]++;
+					}
+				}
 			}
 		}
-		mongo.close();
-		backupDB();
-	}
-	
-	private void updateDB(String email){
 		
-		try{
-			MongoClient mongo = new MongoClient(new MongoClientURI(dbUrl));
-			MongoDatabase mongoDatabase = mongo.getDatabase("hackrusp17");
-			MongoCollection<Document> collection = mongoDatabase.getCollection("users");
-			collection.updateOne(eq("local.email", email), 
-					new Document("$set", new Document("registration_status", 5)));
-			mongo.close();
-		} catch (Exception e){
-			e.printStackTrace();
+		JSONObject stats = new JSONObject();
+		stats.put("checked-in", checkedIn);
+		stats.put("t-shirt", tshirt);
+		for(int i = 0; i < eventsList.length; i++) {
+			stats.put(eventsList[i], eventCounts[i]);
+			stats.put(eventsList[i]+" (more than once)", eventCountsPlus[i]);
 		}
+		return stats;
 	}
 	
-	private void backupDB(){
+	protected void backupDB(){
 		
-		try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("database.ser"))) {
-			oos.writeObject(database);
+		try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("local_database.ser"))) {
+			oos.writeObject(localDatabase);
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
 	}
 	
-	public void readDbUrl(){
+	public void readProperties(){
 		
 		//get information stored in config.properties
 		Properties prop = new Properties();
@@ -179,7 +146,14 @@ public class Utilities {
 		try{
 			input = new FileInputStream("config.properties");
 			prop.load(input);
-			dbUrl = prop.getProperty("dbUrl");
+			restartingServer = Boolean.parseBoolean(prop.getProperty("restartingServer"));
+			eventsList = prop.getProperty("events").split(",");
+			//db properties
+			if(prop.getProperty("useExternalDB").equals("true")) {
+				DBUtilitiesImpl.dbUrl = prop.getProperty("dbUrl");
+				DBUtilitiesImpl.dbName = prop.getProperty("dbName");
+				DBUtilitiesImpl.dbCollectionName = prop.getProperty("dbCollectionName");
+			}
 		} catch(IOException e){
 			e.printStackTrace();
 		} finally {
